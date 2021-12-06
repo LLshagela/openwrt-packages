@@ -45,8 +45,10 @@ local encrypt_methods_ss = {
 	"aes-192-gcm",
 	"aes-256-gcm",
 	"chacha20-ietf-poly1305",
-	"xchacha20-ietf-poly1305",
-	-- stream
+	"xchacha20-ietf-poly1305"
+	--[[ stream
+	"none",
+	"plain",
 	"table",
 	"rc4",
 	"rc4-md5",
@@ -62,17 +64,13 @@ local encrypt_methods_ss = {
 	"camellia-256-cfb",
 	"salsa20",
 	"chacha20",
-	"chacha20-ietf"
+	"chacha20-ietf" ]]
 }
 
 local encrypt_methods_v2ray_ss = {
 	-- xray_ss
 	"none",
 	"plain",
-	"aes-128-cfb",
-	"aes-256-cfb",
-	"chacha20",
-	"chacha20-ietf",
 	-- aead
 	"aes-128-gcm",
 	"aes-256-gcm",
@@ -111,6 +109,7 @@ local securitys = {
 	-- vmess
 	"auto",
 	"none",
+	"zero",
 	"aes-128-gcm",
 	"chacha20-poly1305"
 }
@@ -149,7 +148,7 @@ end
 if is_finded("ssr-redir") then
 	o:value("ssr", translate("ShadowsocksR"))
 end
-if is_finded("ss-redir") then
+if is_finded("sslocal") or is_finded("ss-redir") then
 	o:value("ss", translate("Shadowsocks New Version"))
 end
 if is_finded("trojan") then
@@ -256,10 +255,10 @@ o.rmempty = true
 o:depends({type = "v2ray", v2ray_protocol = "shadowsocks"})
 
 -- Shadowsocks Plugin
-o = s:option(ListValue, "plugin", translate("Obfs"))
+o = s:option(Value, "plugin", translate("Obfs"))
 o:value("none", translate("None"))
 if is_finded("obfs-local") then
-	o:value("obfs-local", translate("simple-obfs"))
+	o:value("obfs-local", translate("obfs-local"))
 end
 if is_finded("v2ray-plugin") then
 	o:value("v2ray-plugin", translate("v2ray-plugin"))
@@ -331,6 +330,7 @@ o:value("kcp", "mKCP")
 o:value("ws", "WebSocket")
 o:value("h2", "HTTP/2")
 o:value("quic", "QUIC")
+o:value("grpc", "gRPC")
 o.rmempty = true
 o:depends("type", "v2ray")
 
@@ -356,16 +356,12 @@ o.rmempty = true
 -- WS域名
 o = s:option(Value, "ws_host", translate("WebSocket Host"))
 o:depends({transport = "ws", tls = false})
-o:depends("trojan_transport", "h2+ws")
-o:depends("trojan_transport", "ws")
 o.datatype = "hostname"
 o.rmempty = true
 
 -- WS路径
 o = s:option(Value, "ws_path", translate("WebSocket Path"))
 o:depends("transport", "ws")
-o:depends("trojan_transport", "h2+ws")
-o:depends("trojan_transport", "ws")
 o.rmempty = true
 
 -- [[ H2部分 ]]--
@@ -378,6 +374,11 @@ o.rmempty = true
 -- H2路径
 o = s:option(Value, "h2_path", translate("HTTP/2 Path"))
 o:depends("transport", "h2")
+o.rmempty = true
+
+-- gRPC
+o = s:option(Value, "serviceName", translate("serviceName"))
+o:depends("transport", "grpc")
 o.rmempty = true
 
 -- [[ QUIC部分 ]]--
@@ -457,28 +458,6 @@ o = s:option(Flag, "congestion", translate("Congestion"))
 o:depends("transport", "kcp")
 o.rmempty = true
 
-o = s:option(ListValue, "plugin_type", translate("Plugin Type"))
-o:value("plaintext", translate("Plain Text"))
-o:value("shadowsocks", translate("ShadowSocks"))
-o:value("other", translate("Other"))
-o.default = "plaintext"
-o:depends({tls = false, trojan_transport = "original"})
-
-o = s:option(Value, "plugin_cmd", translate("Plugin Binary"))
-o.placeholder = "eg: /usr/bin/v2ray-plugin"
-o:depends({plugin_type = "shadowsocks"})
-o:depends({plugin_type = "other"})
-
-o = s:option(Value, "plugin_option", translate("Plugin Option"))
-o.placeholder = "eg: obfs=http;obfs-host=www.baidu.com"
-o:depends({plugin_type = "shadowsocks"})
-o:depends({plugin_type = "other"})
-
-o = s:option(DynamicList, "plugin_arg", translate("Plugin Option Args"))
-o.placeholder = "eg: [\"-config\", \"test.json\"]"
-o:depends({plugin_type = "shadowsocks"})
-o:depends({plugin_type = "other"})
-
 -- [[ TLS ]]--
 o = s:option(Flag, "tls", translate("TLS"))
 o.rmempty = true
@@ -512,17 +491,15 @@ o = s:option(Flag, "tls_sessionTicket", translate("Session Ticket"))
 o:depends({type = "trojan", tls = true})
 o.default = "0"
 
--- [[ Trojan TLS ]]--
+-- [[ uTLS ]]--
 o = s:option(ListValue, "fingerprint", translate("Finger Print"))
 o:value("disable", translate("disable"))
 o:value("firefox", translate("firefox"))
 o:value("chrome", translate("chrome"))
-if is_finded("xray") then
-	o:value("safari", translate("safari"))
-	o:value("randomized", translate("random"))
-end
+o:value("safari", translate("safari"))
+o:value("randomized", translate("randomized"))
 o:depends({type = "v2ray", tls = true})
-o.default = "firefox"
+o.default = "disable"
 
 o = s:option(Value, "tls_host", translate("TLS Host"))
 o.datatype = "hostname"

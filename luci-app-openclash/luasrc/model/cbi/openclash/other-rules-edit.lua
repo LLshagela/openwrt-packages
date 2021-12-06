@@ -58,7 +58,7 @@ for t,f in ipairs(fs.glob("/etc/openclash/config/*"))do
   end
 end
 
-o = s:option(Button, translate("Get Group Names")) 
+o = s:option(Button, translate("Get Group Names"))
 o.title = translate("Get Group Names")
 o.inputtitle = translate("Get Group Names")
 o.description = translate("Get Group Names After Select Config File")
@@ -123,7 +123,62 @@ end
 o:value("DIRECT")
 o:value("REJECT")
 
+o = s:option(ListValue, "Bilibili", translate("Bilibili"))
+o:depends("rule_name", "lhie1")
+o.rmempty = true
+for groupname in string.gmatch(groupnames, "([^'##\n']+)##") do
+  if groupname ~= nil and groupname ~= "" then
+    o:value(groupname)
+  end
+end
+o:value("DIRECT")
+o:value("REJECT")
+
+o = s:option(ListValue, "Bahamut", translate("Bahamut"))
+o:depends("rule_name", "lhie1")
+o.rmempty = true
+for groupname in string.gmatch(groupnames, "([^'##\n']+)##") do
+  if groupname ~= nil and groupname ~= "" then
+    o:value(groupname)
+  end
+end
+o:value("DIRECT")
+o:value("REJECT")
+
+o = s:option(ListValue, "HBO", translate("HBO"))
+o:depends("rule_name", "lhie1")
+o.rmempty = true
+for groupname in string.gmatch(groupnames, "([^'##\n']+)##") do
+  if groupname ~= nil and groupname ~= "" then
+    o:value(groupname)
+  end
+end
+o:value("DIRECT")
+o:value("REJECT")
+
+o = s:option(ListValue, "Pornhub", translate("Pornhub"))
+o:depends("rule_name", "lhie1")
+o.rmempty = true
+for groupname in string.gmatch(groupnames, "([^'##\n']+)##") do
+  if groupname ~= nil and groupname ~= "" then
+    o:value(groupname)
+  end
+end
+o:value("DIRECT")
+o:value("REJECT")
+
 o = s:option(ListValue, "Apple", translate("Apple"))
+o:depends("rule_name", "lhie1")
+o.rmempty = true
+for groupname in string.gmatch(groupnames, "([^'##\n']+)##") do
+  if groupname ~= nil and groupname ~= "" then
+    o:value(groupname)
+  end
+end
+o:value("DIRECT")
+o:value("REJECT")
+
+o = s:option(ListValue, "Scholar", translate("Scholar"))
 o:depends("rule_name", "lhie1")
 o.rmempty = true
 for groupname in string.gmatch(groupnames, "([^'##\n']+)##") do
@@ -156,7 +211,7 @@ end
 o:value("DIRECT")
 o:value("REJECT")
 
-o = s:option(ListValue, "Disney", translate("Disney"))
+o = s:option(ListValue, "Disney", translate("Disney Plus"))
 o:depends("rule_name", "lhie1")
 o.rmempty = true
 for groupname in string.gmatch(groupnames, "([^'##\n']+)##") do
@@ -266,19 +321,19 @@ local t = {
 }
 a = m:section(Table, t)
 
-o = a:option(Button,"Commit")
-o.inputtitle = translate("Commit Configurations")
+o = a:option(Button,"Commit", " ")
+o.inputtitle = translate("Commit Settings")
 o.inputstyle = "apply"
 o.write = function()
    m.uci:commit(openclash)
    --luci.http.redirect(m.redirect)
 end
 
-o = a:option(Button,"Back")
-o.inputtitle = translate("Back Configurations")
+o = a:option(Button,"Back", " ")
+o.inputtitle = translate("Back Settings")
 o.inputstyle = "reset"
 o.write = function()
-   m.uci:revert(openclash)
+   m.uci:revert(openclash, sid)
    luci.http.redirect(m.redirect)
 end
 

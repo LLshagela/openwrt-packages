@@ -52,11 +52,11 @@ end
 o = s:option(ListValue, "type", translate("Group Type"))
 o.rmempty = true
 o.description = translate("Choose The Operation Mode")
-o:value("select", translate("Select　"))
+o:value("select", translate("Manual-Select"))
 o:value("url-test", translate("URL-Test"))
 o:value("fallback", translate("Fallback"))
 o:value("load-balance", translate("Load-Balance"))
-o:value("relay", translate("Relay Traffic"))
+o:value("relay", translate("Relay-Traffic"))
 
 o = s:option(ListValue, "strategy", translate("Strategy Type"))
 o.rmempty = true
@@ -67,6 +67,7 @@ o:depends("type", "load-balance")
 
 o = s:option(Value, "name", translate("Group Name"))
 o.rmempty = false
+o.default = "Group - "..sid
 
 o = s:option(ListValue, "disable_udp", translate("Disable UDP"))
 o:value("false", translate("Disable"))
@@ -111,8 +112,8 @@ local t = {
 }
 a = m:section(Table, t)
 
-o = a:option(Button,"Commit")
-o.inputtitle = translate("Commit Configurations")
+o = a:option(Button,"Commit", " ")
+o.inputtitle = translate("Commit Settings")
 o.inputstyle = "apply"
 o.write = function()
    m.uci:commit(openclash)
@@ -120,11 +121,11 @@ o.write = function()
    luci.http.redirect(m.redirect)
 end
 
-o = a:option(Button,"Back")
-o.inputtitle = translate("Back Configurations")
+o = a:option(Button,"Back", " ")
+o.inputtitle = translate("Back Settings")
 o.inputstyle = "reset"
 o.write = function()
-   m.uci:revert(openclash)
+   m.uci:revert(openclash, sid)
    luci.http.redirect(m.redirect)
 end
 

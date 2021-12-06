@@ -1,19 +1,27 @@
 #!/bin/bash
 . /lib/functions.sh
-. /usr/share/openclash/openclash_ps.sh
 . /usr/share/openclash/ruby.sh
 
-status=$(unify_ps_status "openclash_debug.sh")
-[ "$status" -gt "3" ] && exit 0
+set_lock() {
+   exec 885>"/tmp/lock/openclash_debug.lock" 2>/dev/null
+   flock -x 885 2>/dev/null
+}
+
+del_lock() {
+   flock -u 885 2>/dev/null
+   rm -rf "/tmp/lock/openclash_debug.lock"
+}
 
 DEBUG_LOG="/tmp/openclash_debug.log"
-LOGTIME=$(date "+%Y-%m-%d %H:%M:%S")
+LOGTIME=$(echo $(date "+%Y-%m-%d %H:%M:%S"))
 uci commit openclash
+set_lock
 
 enable_custom_dns=$(uci get openclash.config.enable_custom_dns 2>/dev/null)
 rule_source=$(uci get openclash.config.rule_source 2>/dev/null)
 enable_custom_clash_rules=$(uci get openclash.config.enable_custom_clash_rules 2>/dev/null) 
 ipv6_enable=$(uci get openclash.config.ipv6_enable 2>/dev/null)
+ipv6_dns=$(uci get openclash.config.ipv6_dns 2>/dev/null)
 enable_redirect_dns=$(uci get openclash.config.enable_redirect_dns 2>/dev/null)
 disable_masq_cache=$(uci get openclash.config.disable_masq_cache 2>/dev/null)
 proxy_mode=$(uci get openclash.config.proxy_mode 2>/dev/null)
@@ -27,7 +35,6 @@ core_type=$(uci get openclash.config.core_version 2>/dev/null)
 cpu_model=$(opkg status libc 2>/dev/null |grep 'Architecture' |awk -F ': ' '{print $2}' 2>/dev/null)
 core_version=$(/etc/openclash/core/clash -v 2>/dev/null |awk -F ' ' '{print $2}' 2>/dev/null)
 core_tun_version=$(/etc/openclash/core/clash_tun -v 2>/dev/null |awk -F ' ' '{print $2}' 2>/dev/null)
-core_game_version=$(/etc/openclash/core/clash_game -v 2>/dev/null |awk -F ' ' '{print $2}' 2>/dev/null)
 servers_update=$(uci get openclash.config.servers_update 2>/dev/null)
 mix_proxies=$(uci get openclash.config.mix_proxies 2>/dev/null)
 op_version=$(sed -n 1p /usr/share/openclash/res/openclash_version 2>/dev/null)
@@ -80,10 +87,7 @@ LuCI版本: $(opkg status luci 2>/dev/null |grep 'Version' |awk -F ': ' '{print 
 内核版本: $(uname -r 2>/dev/null)
 处理器架构: $cpu_model
 
-#此项在使用Tun模式时应为ACCEPT
-防火墙转发: $(uci get firewall.@defaults[0].forward 2>/dev/null)
-
-#此项有值时建议到网络-接口-lan的设置中禁用IPV6的DHCP
+#此项有值时,如不使用IPv6,建议到网络-接口-lan的设置中禁用IPV6的DHCP
 IPV6-DHCP: $(uci get dhcp.lan.dhcpv6 2>/dev/null)
 
 #此项结果应仅有配置文件的DNS监听地址
@@ -99,7 +103,6 @@ coreutils: $(ts_re "$(opkg status coreutils 2>/dev/null |grep 'Status' |awk -F '
 coreutils-nohup: $(ts_re "$(opkg status coreutils-nohup 2>/dev/null |grep 'Status' |awk -F ': ' '{print $2}' 2>/dev/null)")
 bash: $(ts_re "$(opkg status bash 2>/dev/null |grep 'Status' |awk -F ': ' '{print $2}' 2>/dev/null)")
 curl: $(ts_re "$(opkg status curl 2>/dev/null |grep 'Status' |awk -F ': ' '{print $2}' 2>/dev/null)")
-jsonfilter: $(ts_re "$(opkg status jsonfilter 2>/dev/null |grep 'Status' |awk -F ': ' '{print $2}' 2>/dev/null)")
 ca-certificates: $(ts_re "$(opkg status ca-certificates 2>/dev/null |grep 'Status' |awk -F ': ' '{print $2}' 2>/dev/null)")
 ipset: $(ts_re "$(opkg status ipset 2>/dev/null |grep 'Status' |awk -F ': ' '{print $2}' 2>/dev/null)")
 ip-full: $(ts_re "$(opkg status ip-full 2>/dev/null |grep 'Status' |awk -F ': ' '{print $2}' 2>/dev/null)")
@@ -169,30 +172,6 @@ fi
 
 cat >> "$DEBUG_LOG" <<-EOF
 
-Game内核版本: $core_game_version
-EOF
-
-if [ ! -f "/etc/openclash/core/clash_game" ]; then
-cat >> "$DEBUG_LOG" <<-EOF
-Game内核文件: 不存在
-EOF
-else
-cat >> "$DEBUG_LOG" <<-EOF
-Game内核文件: 存在
-EOF
-fi
-if [ ! -x "/etc/openclash/core/clash_game" ]; then
-cat >> "$DEBUG_LOG" <<-EOF
-Game内核运行权限: 否
-EOF
-else
-cat >> "$DEBUG_LOG" <<-EOF
-Game内核运行权限: 正常
-EOF
-fi
-
-cat >> "$DEBUG_LOG" <<-EOF
-
 Dev内核版本: $core_version
 EOF
 if [ ! -f "/etc/openclash/core/clash" ]; then
@@ -225,7 +204,8 @@ cat >> "$DEBUG_LOG" <<-EOF
 UDP流量转发(tproxy): $(ts_cf "$enable_udp_proxy")
 DNS劫持: $(ts_cf "$enable_redirect_dns")
 自定义DNS: $(ts_cf "$enable_custom_dns")
-IPV6-DNS解析: $(ts_cf "$ipv6_enable")
+IPV6代理: $(ts_cf "$ipv6_enable")
+IPV6-DNS解析: $(ts_cf "$ipv6_dns")
 禁用Dnsmasq缓存: $(ts_cf "$disable_masq_cache")
 自定义规则: $(ts_cf "$enable_custom_clash_rules")
 仅允许内网: $(ts_cf "$intranet_allowed")
@@ -277,17 +257,31 @@ cat >> "$DEBUG_LOG" <<-EOF
 
 #===================== 防火墙设置 =====================#
 
-#NAT chain
+#IPv4 NAT chain
 
 EOF
 iptables-save -t nat >> "$DEBUG_LOG" 2>/dev/null
 
 cat >> "$DEBUG_LOG" <<-EOF
 
-#Mangle chain
+#IPv4 Mangle chain
 
 EOF
 iptables-save -t mangle >> "$DEBUG_LOG" 2>/dev/null
+
+cat >> "$DEBUG_LOG" <<-EOF
+
+#IPv6 NAT chain
+
+EOF
+ip6tables-save -t nat >> "$DEBUG_LOG" 2>/dev/null
+
+cat >> "$DEBUG_LOG" <<-EOF
+
+#IPv6 Mangle chain
+
+EOF
+ip6tables-save -t mangle >> "$DEBUG_LOG" 2>/dev/null
 
 cat >> "$DEBUG_LOG" <<-EOF
 
@@ -377,5 +371,14 @@ tail -n 50 "/tmp/openclash.log" >> "$DEBUG_LOG" 2>/dev/null
 
 cat >> "$DEBUG_LOG" <<-EOF
 
+#===================== 活动连接信息 =====================#
+
+EOF
+/usr/share/openclash/openclash_debug_getcon.lua
+
+cat >> "$DEBUG_LOG" <<-EOF
+
 \`\`\`
 EOF
+
+del_lock
